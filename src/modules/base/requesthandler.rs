@@ -1,6 +1,6 @@
 use isahc::Body;
 
-pub async fn request(url: &str) -> Result<isahc::Response<Body>, isahc::Response<Body>> {
+pub async fn get(url: &str) -> Result<isahc::Response<Body>, isahc::Response<Body>> {
     let requestresponse = isahc::get(url).unwrap();
     if requestresponse.status().is_success() == true {
         return Ok(requestresponse);
