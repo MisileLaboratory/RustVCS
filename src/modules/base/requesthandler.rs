@@ -1,19 +1,11 @@
-use isahc::Body;
+use reqwest::header::HeaderMap;
 
-pub async fn get(url: &str) -> Result<isahc::Response<Body>, isahc::Response<Body>> {
-    let requestresponse = isahc::get(url).unwrap();
-    if requestresponse.status().is_success() == true {
-        return Ok(requestresponse);
-    } else {
-        return Err(requestresponse);
-    }
-}
+use reqwest::header::{ACCEPT, CONTENT_TYPE, AUTHORIZATION};
 
-pub async fn post(url: &str, body: Body) -> Result<isahc::Response<Body>, isahc::Response<Body>> {
-    let requestresponse = isahc::post(url, body).unwrap();
-    if requestresponse.status().is_success() == true {
-        return Ok(requestresponse);
-    } else {
-        return Err(requestresponse);
-    }
+pub fn get_default_headers(token: String) -> HeaderMap {
+    let mut requestresponse = HeaderMap::new();
+    requestresponse.insert(ACCEPT, "application/vnd.github.v3+json".parse().unwrap());
+    requestresponse.insert(CONTENT_TYPE, "application/json".parse().unwrap());
+    requestresponse.insert(AUTHORIZATION, format!("token {}", token).parse().unwrap());
+    return requestresponse;
 }
