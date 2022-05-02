@@ -37,21 +37,22 @@ struct TempGithubArtifacts {
 
 #[async_trait]
 pub trait GithubHandlingTrait {
-    fn new(access_token: String) -> GithubHandler;
+    fn new(access_token: String) -> Self;
     fn github_time_parse(&self, timestring: String) -> ParseResult<NaiveDateTime>;
     async fn get_list_of_artifacts(&self, owner: String, repo: String) -> Result<Option<GithubArtifacts>, Error>;
+    async fn get_artifact(&self, owner: String, repo: String, artifact_id: String) -> Result<GithubArtifact, Error>;
 }
 
 #[async_trait]
 impl GithubHandlingTrait for GithubHandler {
-    fn new(access_token: String) -> GithubHandler {
-        let client = Client::builder().default_headers(get_default_headers(access_token)).build().unwrap_or(Client::new());
-        return GithubHandler { client, base_url: "https://api.github.com".to_string() };
+    fn new(access_token: String) -> Self {
+        let client = Client::builder().default_headers(get_default_headers(access_token)).build().unwrap_or_default();
+        GithubHandler { client, base_url: "https://api.github.com".to_string() }
     }
 
     /// parse github time to NaiveDateTime
     fn github_time_parse(&self, timestring: String) -> ParseResult<NaiveDateTime> {
-        return NaiveDateTime::parse_from_str(&timestring, "%Y-%m-%dT%H:%M:%SZ");
+        NaiveDateTime::parse_from_str(&timestring, "%Y-%m-%dT%H:%M:%SZ")
     }
 
     /// get list of artifacts
@@ -77,7 +78,7 @@ impl GithubHandlingTrait for GithubHandler {
                                     expired: i.clone().expired,
                                     created_at: self.github_time_parse(i.clone().created_at).unwrap(),
                                     expires_at: self.github_time_parse(i.clone().expires_at).unwrap(),
-                                    updated_at: self.github_time_parse(i.clone().updated_at).unwrap(),
+                                    updated_at: self.github_time_parse(i.clone().updated_at).unwrap()
                                 }
                             );
                         }
@@ -90,5 +91,31 @@ impl GithubHandlingTrait for GithubHandler {
                 };
             }
         };
+    }
+
+    /// get artifact
+    async fn get_artifact(&self, owner: String, repo: String, artifact_id: String) -> Result<GithubArtifact, Error> {
+        match self.client.get(format!("{}/repos/{}/{}/actions/artifacts/{}", self.base_url, owner, repo, artifact_id)).send().await {
+            Ok(response) => {
+                match response.json::<TempGithubArtifact>().await {
+                    Ok(i) => {
+                        Ok(GithubArtifact{
+                            id: i.clone().id,
+                            node_id: i.clone().node_id,
+                            name: i.clone().name,
+                            size_in_megabytes: i.clone().size_in_megabytes,
+                            url: i.clone().url,
+                            archive_download_url: i.clone().archive_download_url,
+                            expired: i.clone().expired,
+                            created_at: self.github_time_parse(i.clone().created_at).unwrap(),
+                            expires_at: self.github_time_parse(i.clone().expires_at).unwrap(),
+                            updated_at: self.github_time_parse(i.clone().updated_at).unwrap()
+                        })
+                    },
+                    Err(err) => return Err(err)
+                }
+            }
+            Err(e) => return Err(e)
+        }
     }
 }
