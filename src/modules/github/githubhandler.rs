@@ -40,7 +40,8 @@ pub trait GithubHandlingTrait {
     fn new(access_token: String) -> Self;
     fn github_time_parse(&self, timestring: String) -> ParseResult<NaiveDateTime>;
     async fn get_list_of_artifacts(&self, owner: String, repo: String) -> Result<Option<GithubArtifacts>, Error>;
-    async fn get_artifact(&self, owner: String, repo: String, artifact_id: String) -> Result<GithubArtifact, Error>;
+    async fn get_artifact(&self, owner: String, repo: String, artifact_id: u128) -> Result<GithubArtifact, Error>;
+    async fn delete_artifact(&self, owner: String, repo: String, artifact_id: u128) -> Result<(), Error>;
 }
 
 #[async_trait]
@@ -94,7 +95,7 @@ impl GithubHandlingTrait for GithubHandler {
     }
 
     /// get artifact
-    async fn get_artifact(&self, owner: String, repo: String, artifact_id: String) -> Result<GithubArtifact, Error> {
+    async fn get_artifact(&self, owner: String, repo: String, artifact_id: u128) -> Result<GithubArtifact, Error> {
         match self.client.get(format!("{}/repos/{}/{}/actions/artifacts/{}", self.base_url, owner, repo, artifact_id)).send().await {
             Ok(response) => {
                 match response.json::<TempGithubArtifact>().await {
@@ -116,6 +117,13 @@ impl GithubHandlingTrait for GithubHandler {
                 }
             }
             Err(e) => return Err(e)
+        }
+    }
+
+    async fn delete_artifact(&self, owner: String, repo: String, artifact_id: u128) -> Result<(), Error> {
+        match self.client.get(format!("{}/repos/{}/{}/actions/artifacts/{}", self.base_url, owner, repo, artifact_id)).send().await {
+            Ok(_) => return Ok(()),
+            Err(err) => return Err(err)
         }
     }
 }
