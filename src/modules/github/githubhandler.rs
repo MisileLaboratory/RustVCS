@@ -4,7 +4,7 @@ use crate::modules::github::structs::githubstructs::*;
 use chrono::format::ParseResult;
 use chrono::NaiveDateTime;
 
-use reqwest::{Client, Error};
+use reqwest::{Client, Error, Response};
 
 use async_trait::async_trait;
 
@@ -42,6 +42,7 @@ pub trait GithubHandlingTrait {
     async fn get_list_of_artifacts(&self, owner: String, repo: String) -> Result<Option<GithubArtifacts>, Error>;
     async fn get_artifact(&self, owner: String, repo: String, artifact_id: u128) -> Result<GithubArtifact, Error>;
     async fn delete_artifact(&self, owner: String, repo: String, artifact_id: u128) -> Result<(), Error>;
+    async fn get_artifact_data(&self, owner: String, repo: String, artifact_id: u128, artifact_format: Option<String>) -> Result<Response, Error>;
 }
 
 #[async_trait]
@@ -120,9 +121,19 @@ impl GithubHandlingTrait for GithubHandler {
         }
     }
 
+    /// delete artifact
     async fn delete_artifact(&self, owner: String, repo: String, artifact_id: u128) -> Result<(), Error> {
         match self.client.get(format!("{}/repos/{}/{}/actions/artifacts/{}", self.base_url, owner, repo, artifact_id)).send().await {
             Ok(_) => return Ok(()),
+            Err(err) => return Err(err)
+        }
+    }
+    
+
+    /// delete artifacts
+    async fn get_artifact_data(&self, owner: String, repo: String, artifact_id: u128, artifact_format: Option<String>) -> Result<Response, Error> {
+        match self.client.get(format!("https://api.github.com/repos/{}/{}/actions/artifacts/{}/{}", owner, repo, artifact_id, artifact_format.unwrap_or("zip".to_string()))).send().await {
+            Ok(data) => return Ok(data),
             Err(err) => return Err(err)
         }
     }
