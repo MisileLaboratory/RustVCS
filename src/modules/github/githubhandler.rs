@@ -43,6 +43,7 @@ pub trait GithubHandlingTrait {
     async fn get_artifact(&self, owner: String, repo: String, artifact_id: u128) -> Result<GithubArtifact, Error>;
     async fn delete_artifact(&self, owner: String, repo: String, artifact_id: u128) -> Result<(), Error>;
     async fn get_artifact_data(&self, owner: String, repo: String, artifact_id: u128, artifact_format: Option<String>) -> Result<Response, Error>;
+    async fn get_artifact_list_from_one(&self, owner: String, repo: String, run_id: u128) -> Result<Option<GithubArtifacts>, Error>;
 }
 
 #[async_trait]
@@ -130,10 +131,49 @@ impl GithubHandlingTrait for GithubHandler {
     }
     
 
-    /// delete artifacts
+    /// get artifact data
     async fn get_artifact_data(&self, owner: String, repo: String, artifact_id: u128, artifact_format: Option<String>) -> Result<Response, Error> {
-        match self.client.get(format!("https://api.github.com/repos/{}/{}/actions/artifacts/{}/{}", owner, repo, artifact_id, artifact_format.unwrap_or("zip".to_string()))).send().await {
+        match self.client.get(format!("{}/repos/{}/{}/actions/artifacts/{}/{}", self.base_url, owner, repo, artifact_id, artifact_format.unwrap_or("zip".to_string()))).send().await {
             Ok(data) => return Ok(data),
+            Err(err) => return Err(err)
+        }
+    }
+
+    /// get list of artifacts from one workflow run
+    async fn get_artifact_list_from_one(&self, owner: String, repo: String, run_id: u128) -> Result<Option<GithubArtifacts>, Error> {
+        // /repos/OWNER/REPO/actions/runs/RUN_ID/artifacts
+        match self.client.get(format!("{}/repos/{}/{}/actions/runs/{}/artifacts", self.base_url, owner, repo, run_id)).send().await {
+            Ok(response) => {
+                match response.json::<TempGithubArtifacts>().await {
+                    Ok(object) => {
+                        if object.total_count == 0 {
+                            return Ok(None);
+                        }
+                        let mut artifacts = vec!();
+                        for i in object.artifacts.iter() {
+                            artifacts.push(
+                                GithubArtifact{
+                                    id: i.clone().id,
+                                    node_id: i.clone().node_id,
+                                    name: i.clone().name,
+                                    size_in_megabytes: i.clone().size_in_megabytes,
+                                    url: i.clone().url,
+                                    archive_download_url: i.clone().archive_download_url,
+                                    expired: i.clone().expired,
+                                    created_at: self.github_time_parse(i.clone().created_at).unwrap(),
+                                    expires_at: self.github_time_parse(i.clone().expires_at).unwrap(),
+                                    updated_at: self.github_time_parse(i.clone().updated_at).unwrap()
+                                }
+                            );
+                        }
+                        return Ok(Some(GithubArtifacts {
+                            total_count: object.total_count,
+                            artifacts
+                        }))
+                    },
+                    Err(e) => return Err(e)
+                };
+            },
             Err(err) => return Err(err)
         }
     }
