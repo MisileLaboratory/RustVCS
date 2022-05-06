@@ -2,7 +2,7 @@ use crate::modules::base::requesthandler::get_default_headers;
 use crate::modules::github::structs::githubstructs::*;
 
 use chrono::format::ParseResult;
-use chrono::NaiveDateTime;
+use chrono::{NaiveDateTime, Datelike, Timelike};
 
 use reqwest::{Client, Error, Response};
 
@@ -39,6 +39,7 @@ struct TempGithubArtifacts {
 pub trait GithubHandlingTrait {
     fn new(access_token: String) -> Self;
     fn github_time_parse(&self, timestring: String) -> ParseResult<NaiveDateTime>;
+    fn time_to_string(&self, time: NaiveDateTime) -> String;
     async fn get_list_of_artifacts(&self, owner: String, repo: String) -> Result<Option<GithubArtifacts>, Error>;
     async fn get_artifact(&self, owner: String, repo: String, artifact_id: u128) -> Result<GithubArtifact, Error>;
     async fn delete_artifact(&self, owner: String, repo: String, artifact_id: u128) -> Result<(), Error>;
@@ -56,6 +57,10 @@ impl GithubHandlingTrait for GithubHandler {
     /// parse github time to NaiveDateTime
     fn github_time_parse(&self, timestring: String) -> ParseResult<NaiveDateTime> {
         NaiveDateTime::parse_from_str(&timestring, "%Y-%m-%dT%H:%M:%SZ")
+    }
+
+    fn time_to_string(&self, time: NaiveDateTime) -> String {
+        format!("{}-{}-{}T{}:{}:{}Z", time.year(), time.month(), time.day(), time.hour(), time.minute(), time.second())
     }
 
     /// get list of artifacts
@@ -103,16 +108,16 @@ impl GithubHandlingTrait for GithubHandler {
                 match response.json::<TempGithubArtifact>().await {
                     Ok(i) => {
                         Ok(GithubArtifact{
-                            id: i.clone().id,
+                            id: i.id,
                             node_id: i.clone().node_id,
                             name: i.clone().name,
-                            size_in_megabytes: i.clone().size_in_megabytes,
+                            size_in_megabytes: i.size_in_megabytes,
                             url: i.clone().url,
                             archive_download_url: i.clone().archive_download_url,
-                            expired: i.clone().expired,
+                            expired: i.expired,
                             created_at: self.github_time_parse(i.clone().created_at).unwrap(),
                             expires_at: self.github_time_parse(i.clone().expires_at).unwrap(),
-                            updated_at: self.github_time_parse(i.clone().updated_at).unwrap()
+                            updated_at: self.github_time_parse(i.updated_at).unwrap()
                         })
                     },
                     Err(err) => return Err(err)
@@ -133,7 +138,7 @@ impl GithubHandlingTrait for GithubHandler {
 
     /// get artifact data
     async fn get_artifact_data(&self, owner: String, repo: String, artifact_id: u128, artifact_format: Option<String>) -> Result<Response, Error> {
-        match self.client.get(format!("{}/repos/{}/{}/actions/artifacts/{}/{}", self.base_url, owner, repo, artifact_id, artifact_format.unwrap_or("zip".to_string()))).send().await {
+        match self.client.get(format!("{}/repos/{}/{}/actions/artifacts/{}/{}", self.base_url, owner, repo, artifact_id, artifact_format.unwrap_or_else(|| "zip".to_string()))).send().await {
             Ok(data) => return Ok(data),
             Err(err) => return Err(err)
         }
@@ -141,7 +146,6 @@ impl GithubHandlingTrait for GithubHandler {
 
     /// get list of artifacts from one workflow run
     async fn get_artifact_list_from_one(&self, owner: String, repo: String, run_id: u128) -> Result<Option<GithubArtifacts>, Error> {
-        // /repos/OWNER/REPO/actions/runs/RUN_ID/artifacts
         match self.client.get(format!("{}/repos/{}/{}/actions/runs/{}/artifacts", self.base_url, owner, repo, run_id)).send().await {
             Ok(response) => {
                 match response.json::<TempGithubArtifacts>().await {
