@@ -17,22 +17,22 @@ pub struct GithubHandler {
 
 #[derive(Deserialize, Clone)]
 struct TempGithubArtifact {
-    pub id: u128,
-    pub node_id: String,
-    pub name: String,
-    pub size_in_megabytes: u128,
-    pub url: String,
-    pub archive_download_url: String,
-    pub expired: bool,
-    pub created_at: String,
-    pub expires_at: String,
-    pub updated_at: String
+    id: u128,
+    node_id: String,
+    name: String,
+    size_in_megabytes: u128,
+    url: String,
+    archive_download_url: String,
+    expired: bool,
+    created_at: String,
+    expires_at: String,
+    updated_at: String
 }
 
 #[derive(Deserialize)]
 struct TempGithubArtifacts {
-    pub total_count: u128,
-    pub artifacts: Vec<TempGithubArtifact>
+    total_count: u128,
+    artifacts: Vec<TempGithubArtifact>
 }
 
 #[async_trait]
@@ -45,6 +45,7 @@ pub trait GithubHandlingTrait {
     async fn delete_artifact(&self, owner: String, repo: String, artifact_id: u128) -> Result<(), Error>;
     async fn get_artifact_data(&self, owner: String, repo: String, artifact_id: u128, artifact_format: Option<String>) -> Result<Response, Error>;
     async fn get_artifact_list_from_one(&self, owner: String, repo: String, run_id: u128) -> Result<Option<GithubArtifacts>, Error>;
+    async fn get_actions_cache_usage(&self, name: String, enterprise: bool) -> Result<GithubCacheUsage, Error>;
 }
 
 #[async_trait]
@@ -177,6 +178,24 @@ impl GithubHandlingTrait for GithubHandler {
                     },
                     Err(e) => return Err(e)
                 };
+            },
+            Err(err) => return Err(err)
+        }
+    }
+
+    // Gets the total GitHub Actions cache usage for an enterprise
+    async fn get_actions_cache_usage(&self, name: String, enterprise: bool) -> Result<GithubCacheUsage, Error> {
+        let get_url = if enterprise {
+            format!("/enterprises/{}/actions/cache/usage", name)
+        } else {
+            format!("/orgs/{}/actions/cache/usage", name)
+        };
+        match self.client.get(format!("{}{}", self.base_url, get_url)).send().await {
+            Ok(response) => {
+                match response.json::<GithubCacheUsage>().await {
+                    Ok(object) => return Ok(object),
+                    Err(e) => return Err(e)
+                }
             },
             Err(err) => return Err(err)
         }

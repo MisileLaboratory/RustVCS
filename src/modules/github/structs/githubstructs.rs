@@ -1,5 +1,7 @@
 use chrono::naive::NaiveDateTime;
 
+use serde::{Deserialize, Serialize};
+
 pub struct GithubArtifact {
     pub id: u128,
     pub node_id: String,
@@ -16,4 +18,10 @@ pub struct GithubArtifact {
 pub struct GithubArtifacts {
     pub total_count: u128,
     pub artifacts: Vec<GithubArtifact>
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct GithubCacheUsage {
+    pub total_active_caches_size_in_bytes: u128,
+    pub total_active_caches_count: u128
 }

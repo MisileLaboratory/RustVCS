@@ -12,7 +12,7 @@ VCS hosting site api wrapper with rust.
     - Gitea
 
 - Beta
-  - It does not have docs, but have optimizations, refactoring, docs, feature.
+  - It does not have docs, but have optimizations, refactoring, feature.
 
 - Stable
   - It has docs, optimizations, refactoring, feature and (probably) no breaking changes.
