@@ -25,3 +25,10 @@ pub struct GithubCacheUsage {
     pub total_active_caches_size_in_bytes: u128,
     pub total_active_caches_count: u128
 }
+
+#[derive(Deserialize, Serialize)]
+pub struct GithubProjectCacheUsage {
+    pub full_name: String,
+    pub active_caches_size_in_bytes: u128,
+    pub active_caches_count: u16
+}

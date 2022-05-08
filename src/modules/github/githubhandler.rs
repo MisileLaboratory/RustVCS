@@ -46,10 +46,12 @@ pub trait GithubHandlingTrait {
     async fn get_artifact_data(&self, owner: String, repo: String, artifact_id: u128, artifact_format: Option<String>) -> Result<Response, Error>;
     async fn get_artifact_list_from_one(&self, owner: String, repo: String, run_id: u128) -> Result<Option<GithubArtifacts>, Error>;
     async fn get_actions_cache_usage(&self, name: String, enterprise: bool) -> Result<GithubCacheUsage, Error>;
+    async fn get_actions_project_cache_usage(&self, owner: String, repo: String) -> Result<GithubProjectCacheUsage, Error>;
 }
 
 #[async_trait]
 impl GithubHandlingTrait for GithubHandler {
+    /// Make new object with access token
     fn new(access_token: String) -> Self {
         let client = Client::builder().default_headers(get_default_headers(access_token)).build().unwrap_or_default();
         GithubHandler { client, base_url: "https://api.github.com".to_string() }
@@ -183,7 +185,8 @@ impl GithubHandlingTrait for GithubHandler {
         }
     }
 
-    // Gets the total GitHub Actions cache usage for an enterprise
+    /// Gets the total GitHub Actions cache usage.
+    /// If enterprise is true, you will get enterprise cache usage else organization
     async fn get_actions_cache_usage(&self, name: String, enterprise: bool) -> Result<GithubCacheUsage, Error> {
         let get_url = if enterprise {
             format!("/enterprises/{}/actions/cache/usage", name)
@@ -193,6 +196,19 @@ impl GithubHandlingTrait for GithubHandler {
         match self.client.get(format!("{}{}", self.base_url, get_url)).send().await {
             Ok(response) => {
                 match response.json::<GithubCacheUsage>().await {
+                    Ok(object) => return Ok(object),
+                    Err(e) => return Err(e)
+                }
+            },
+            Err(err) => return Err(err)
+        }
+    }
+
+    // Gets gitHub actions cache usage for a repository.
+    async fn get_actions_project_cache_usage(&self, owner: String, repo: String) -> Result<GithubProjectCacheUsage, Error> {
+        match self.client.get(format!("{}/repos/{}/{}/actions/cache/usage", self.base_url, owner, repo)).send().await {
+            Ok(response) => {
+                match response.json::<GithubProjectCacheUsage>().await {
                     Ok(object) => return Ok(object),
                     Err(e) => return Err(e)
                 }
