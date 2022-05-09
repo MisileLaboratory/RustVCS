@@ -15,11 +15,6 @@ pub struct GithubArtifact {
     pub updated_at: NaiveDateTime
 }
 
-pub struct GithubArtifacts {
-    pub total_count: u128,
-    pub artifacts: Vec<GithubArtifact>
-}
-
 #[derive(Deserialize, Serialize)]
 pub struct GithubCacheUsage {
     pub total_active_caches_size_in_bytes: u128,
