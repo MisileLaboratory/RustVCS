@@ -17,13 +17,25 @@ pub struct GithubArtifact {
 
 #[derive(Deserialize, Serialize)]
 pub struct GithubCacheUsage {
-    pub total_active_caches_size_in_bytes: u128,
-    pub total_active_caches_count: u128
+    #[serde(rename = "total_active_caches_size_in_bytes")]
+    pub size_in_bytes: u128,
+    #[serde(rename = "total_active_caches_count")]
+    pub count: u128
 }
 
 #[derive(Deserialize, Serialize)]
 pub struct GithubProjectCacheUsage {
     pub full_name: String,
-    pub active_caches_size_in_bytes: u128,
-    pub active_caches_count: u16
+    #[serde(rename = "total_active_caches_size_in_bytes")]
+    pub size_in_bytes: u128,
+    #[serde(rename = "total_active_caches_count")]
+    pub count: u16
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct GithubActionsPermissions {
+    pub enabled_organizations: String,
+    pub allowed_actions: String,
+    #[serde(rename = "selected_actions_url")]
+    pub url: String
 }

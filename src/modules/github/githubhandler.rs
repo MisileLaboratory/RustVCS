@@ -66,6 +66,7 @@ pub trait GithubHandlingTrait {
     async fn get_actions_list_of_cache_usage_repo(
         &self, name: String, per_page: Option<u8>, page: Option<u8>
     ) -> Result<Option<Vec<GithubProjectCacheUsage>>, Error>;
+    async fn get_actions_permissions(&self, enterprise: String) -> Result<GithubActionsPermissions, Error>;
 }
 
 impl TimestampConvertable for GithubHandler {
@@ -275,10 +276,11 @@ impl GithubHandlingTrait for GithubHandler {
         }
     }
 
+    /// Lists repositories and their GitHub Actions cache usage for an organization.
     async fn get_actions_list_of_cache_usage_repo(
         &self, name: String, per_page: Option<u8>, page: Option<u8>
     ) -> Result<Option<Vec<GithubProjectCacheUsage>>, Error> {
-        match self.client.get(format!("https://api.github.com/orgs/{}/actions/cache/usage-by-repository", name))
+        match self.client.get(format!("{}/orgs/{}/actions/cache/usage-by-repository", self.base_url, name))
             .query(&[("per_page", per_page.unwrap_or(30)), ("page", page.unwrap_or(1))]).send().await {
             Ok(response) => {
                 match response.json::<TempGithubCacheUsages>().await {
@@ -293,5 +295,18 @@ impl GithubHandlingTrait for GithubHandler {
             },
             Err(err) => return Err(err)
         };
+    }
+
+    /// Gets the GitHub Actions permissions policy for organizations and allowed actions and reusable workflows in an enterprise.
+    async fn get_actions_permissions(&self, enterprise: String) -> Result<GithubActionsPermissions, Error> {
+        match self.client.get(format!("{}/enterprises/{}/actions/permissions", self.base_url, enterprise)).send().await {
+            Ok(response) => {
+                match response.json::<GithubActionsPermissions>().await {
+                    Ok(obj) => return Ok(obj),
+                    Err(err) => return Err(err)
+                }
+            },
+            Err(e) => return Err(e)
+        }
     }
 }
