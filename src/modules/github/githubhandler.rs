@@ -12,7 +12,8 @@ use serde::Deserialize;
 
 pub enum Errors {
     ParseError(ParseError),
-    ReqwestError(Error)
+    ReqwestError(Error),
+    SerdeError(serde_json::Error)
 }
 
 pub struct GithubHandler {
@@ -61,12 +62,13 @@ pub trait GithubHandlingTrait {
     async fn get_artifact_list_from_one(
         &self, owner: String, repo: String, run_id: u128, per_page: Option<u8>, page: Option<u8>
     ) -> Result<Option<Vec<GithubArtifact>>, Errors>;
-    async fn get_actions_cache_usage(&self, name: String, enterprise: bool) -> Result<GithubCacheUsage, Error>;
-    async fn get_actions_project_cache_usage(&self, owner: String, repo: String) -> Result<GithubProjectCacheUsage, Error>;
-    async fn get_actions_list_of_cache_usage_repo(
+    async fn get_action_cache_usage(&self, name: String, enterprise: bool) -> Result<GithubCacheUsage, Error>;
+    async fn get_action_project_cache_usage(&self, owner: String, repo: String) -> Result<GithubProjectCacheUsage, Error>;
+    async fn get_action_list_of_cache_usage_repo(
         &self, name: String, per_page: Option<u8>, page: Option<u8>
     ) -> Result<Option<Vec<GithubProjectCacheUsage>>, Error>;
-    async fn get_actions_permissions(&self, enterprise: String) -> Result<GithubActionsPermissions, Error>;
+    async fn get_action_permissions(&self, name: String) -> Result<GithubActionPermissions, Error>;
+    async fn set_action_permissions(&self, name: String, permissions: GithubActionPermissions) -> Result<(), Errors>;
 }
 
 impl TimestampConvertable for GithubHandler {
@@ -246,7 +248,7 @@ impl GithubHandlingTrait for GithubHandler {
 
     /// Gets the total GitHub Actions cache usage.
     /// If enterprise is true, you will get enterprise cache usage else organization
-    async fn get_actions_cache_usage(&self, name: String, enterprise: bool) -> Result<GithubCacheUsage, Error> {
+    async fn get_action_cache_usage(&self, name: String, enterprise: bool) -> Result<GithubCacheUsage, Error> {
         let get_url = if enterprise {
             format!("/enterprises/{}/actions/cache/usage", name)
         } else {
@@ -264,7 +266,7 @@ impl GithubHandlingTrait for GithubHandler {
     }
 
     // Gets gitHub actions cache usage for a repository.
-    async fn get_actions_project_cache_usage(&self, owner: String, repo: String) -> Result<GithubProjectCacheUsage, Error> {
+    async fn get_action_project_cache_usage(&self, owner: String, repo: String) -> Result<GithubProjectCacheUsage, Error> {
         match self.client.get(format!("{}/repos/{}/{}/actions/cache/usage", self.base_url, owner, repo)).send().await {
             Ok(response) => {
                 match response.json::<GithubProjectCacheUsage>().await {
@@ -277,7 +279,7 @@ impl GithubHandlingTrait for GithubHandler {
     }
 
     /// Lists repositories and their GitHub Actions cache usage for an organization.
-    async fn get_actions_list_of_cache_usage_repo(
+    async fn get_action_list_of_cache_usage_repo(
         &self, name: String, per_page: Option<u8>, page: Option<u8>
     ) -> Result<Option<Vec<GithubProjectCacheUsage>>, Error> {
         match self.client.get(format!("{}/orgs/{}/actions/cache/usage-by-repository", self.base_url, name))
@@ -298,15 +300,27 @@ impl GithubHandlingTrait for GithubHandler {
     }
 
     /// Gets the GitHub Actions permissions policy for organizations and allowed actions and reusable workflows in an enterprise.
-    async fn get_actions_permissions(&self, enterprise: String) -> Result<GithubActionsPermissions, Error> {
-        match self.client.get(format!("{}/enterprises/{}/actions/permissions", self.base_url, enterprise)).send().await {
+    async fn get_action_permissions(&self, name: String) -> Result<GithubActionPermissions, Error> {
+        match self.client.get(format!("{}/enterprises/{}/actions/permissions", self.base_url, name)).send().await {
             Ok(response) => {
-                match response.json::<GithubActionsPermissions>().await {
+                match response.json::<GithubActionPermissions>().await {
                     Ok(obj) => return Ok(obj),
                     Err(err) => return Err(err)
                 }
             },
             Err(e) => return Err(e)
+        }
+    }
+
+    /// Sets the GitHub Actions permissions policy for organizations and allowed actions and reusable workflows in an enterprise.
+    async fn set_action_permissions(&self, name: String, permissions: GithubActionPermissions) -> Result<(), Errors> {
+        let jsonstring = match serde_json::to_string(&permissions) {
+            Ok(st) => st,
+            Err(e) => return Err(Errors::SerdeError(e))
+        };
+        match self.client.put(format!("{}/enterprises/{}/actions/permissions", self.base_url, name)).body(jsonstring).send().await {
+            Ok(_) => Ok(()),
+            Err(e) => Err(Errors::ReqwestError(e))
         }
     }
 }

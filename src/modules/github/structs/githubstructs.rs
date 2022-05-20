@@ -33,9 +33,9 @@ pub struct GithubProjectCacheUsage {
 }
 
 #[derive(Deserialize, Serialize)]
-pub struct GithubActionsPermissions {
+pub struct GithubActionPermissions {
     pub enabled_organizations: String,
     pub allowed_actions: String,
     #[serde(rename = "selected_actions_url")]
-    pub url: String
+    pub url: Option<String>
 }
